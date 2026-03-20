@@ -75,6 +75,37 @@ class CoachProfileViewSet(viewsets.ModelViewSet):
         
         return Response(CoachProfileSerializer(coach_profile).data, status=status.HTTP_201_CREATED)
 
+    @action(detail=True, methods=['patch'], permission_classes=[IsAdminUser], parser_classes=[MultiPartParser, FormParser])
+    @transaction.atomic
+    def update_profile(self, request, pk=None):
+        coach_profile = self.get_object()
+        user = coach_profile.user
+        profile = user.profile
+        data = request.data
+        
+        # 1. Update User
+        if 'first_name' in data: user.first_name = data['first_name']
+        if 'last_name' in data: user.last_name = data['last_name']
+        if 'email' in data: user.email = data['email']
+        user.save()
+        
+        # 2. Update Profile
+        if 'dob' in data: profile.dob = data['dob'] or None
+        if 'phone' in data: profile.phone = data['phone']
+        if 'address' in data: profile.address = data['address']
+        profile.save()
+        
+        # 3. Update CoachProfile
+        if 'specialization' in data: coach_profile.specialization = data['specialization']
+        if 'experience_years' in data: coach_profile.experience_years = data['experience_years']
+        
+        if 'resume' in request.FILES: coach_profile.resume = request.FILES['resume']
+        if 'license' in request.FILES: coach_profile.license = request.FILES['license']
+        if 'contract' in request.FILES: coach_profile.contract = request.FILES['contract']
+        coach_profile.save()
+        
+        return Response(CoachProfileSerializer(coach_profile).data)
+
 class PlayerProfileViewSet(viewsets.ModelViewSet):
     queryset = PlayerProfile.objects.all()
     serializer_class = PlayerProfileSerializer

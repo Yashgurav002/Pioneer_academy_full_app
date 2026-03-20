@@ -6,7 +6,7 @@ import DataTable, { Column } from '@/components/ui/DataTable';
 import Modal from '@/components/ui/Modal';
 import apiClient from '@/lib/axios';
 import useAuthStore from '@/store/authStore';
-import { Plus, Trash2, FileText } from 'lucide-react';
+import { Plus, Trash2, FileText, Edit2 } from 'lucide-react';
 
 export default function CoachesPage() {
   const [coaches, setCoaches] = useState<any[]>([]);
@@ -14,6 +14,8 @@ export default function CoachesPage() {
   
   // Modal states
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editCoachId, setEditCoachId] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const initialForm = {
@@ -30,7 +32,8 @@ export default function CoachesPage() {
   const fetchCoaches = async () => {
     try {
       const res = await apiClient.get('coaches/');
-      const formatted = res.data.map((c: any) => ({
+      const dataList = res.data.results ? res.data.results : res.data;
+      const formatted = dataList.map((c: any) => ({
         ...c,
         username: c.user?.username,
         email: c.user?.email,
@@ -65,20 +68,43 @@ export default function CoachesPage() {
     if (files.contract) data.append('contract', files.contract);
 
     try {
-      await apiClient.post('coaches/register/', data, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        }
-      });
-      setIsAddOpen(false);
+      if (isEditOpen && editCoachId) {
+        await apiClient.patch(`coaches/${editCoachId}/update_profile/`, data, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        setIsEditOpen(false);
+      } else {
+        await apiClient.post('coaches/register/', data, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        setIsAddOpen(false);
+      }
       setFormData(initialForm);
       setFiles({ resume: null, license: null, contract: null });
       fetchCoaches();
     } catch (err: any) {
-      alert('Error creating coach: ' + JSON.stringify(err.response?.data || err.message));
+      alert('Error saving coach: ' + JSON.stringify(err.response?.data || err.message));
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const openEdit = (coach: any) => {
+    setFormData({
+      username: coach.user?.username || '',
+      email: coach.user?.email || '',
+      password: '',
+      first_name: coach.user?.first_name || '',
+      last_name: coach.user?.last_name || '',
+      dob: '', 
+      phone: '', 
+      address: '',
+      specialization: coach.specialization || '',
+      experience_years: coach.experience_years?.toString() || '0'
+    });
+    setFiles({ resume: null, license: null, contract: null });
+    setEditCoachId(coach.id); 
+    setIsEditOpen(true);
   };
 
   const handleDelete = async (userId: number) => {
@@ -97,6 +123,98 @@ export default function CoachesPage() {
     { key: 'specialization', label: 'Specialization' },
     { key: 'experience_years', label: 'Experience (Yrs)' },
   ];
+
+  const modalBodyContent = (
+    <form onSubmit={handleAddSubmit} className="space-y-5">
+      {/* Section 1: User Account */}
+      <div className="border-b border-gray-100 dark:border-gray-800 pb-4">
+        <h3 className="text-sm font-semibold text-gray-500 mb-3 uppercase tracking-wider">Account Information</h3>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">First Name</label>
+            <input required type="text" value={formData.first_name} onChange={(e) => setFormData({...formData, first_name: e.target.value})} className="w-full form-input bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-white" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Last Name</label>
+            <input required type="text" value={formData.last_name} onChange={(e) => setFormData({...formData, last_name: e.target.value})} className="w-full form-input bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-white" />
+          </div>
+          {!isEditOpen && (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Username</label>
+                <input required type="text" value={formData.username} onChange={(e) => setFormData({...formData, username: e.target.value})} className="w-full form-input bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-white" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
+                <input required type="email" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} className="w-full form-input bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-white" />
+              </div>
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Initial Password</label>
+                <input required type="password" minLength={8} value={formData.password} onChange={(e) => setFormData({...formData, password: e.target.value})} className="w-full form-input bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-white" />
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Section 2: Personal Profile */}
+      <div className="border-b border-gray-100 dark:border-gray-800 pb-4">
+        <h3 className="text-sm font-semibold text-gray-500 mb-3 uppercase tracking-wider">Personal Details</h3>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date of Birth</label>
+            <input type="date" value={formData.dob} onChange={(e) => setFormData({...formData, dob: e.target.value})} className="w-full form-input bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-white" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Contact No.</label>
+            <input type="text" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} className="w-full form-input bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-white" />
+          </div>
+          <div className="col-span-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Location of Coaching</label>
+            <input type="text" value={formData.address} onChange={(e) => setFormData({...formData, address: e.target.value})} className="w-full form-input bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-white" placeholder="e.g., Stadium Name, City" />
+          </div>
+        </div>
+      </div>
+
+      {/* Section 3: Professional Files */}
+      <div>
+        <h3 className="text-sm font-semibold text-gray-500 mb-3 uppercase tracking-wider">Professional Credentials</h3>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Specialization</label>
+            <input type="text" value={formData.specialization} onChange={(e) => setFormData({...formData, specialization: e.target.value})} className="w-full form-input bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-white" placeholder="e.g., Goalkeeping, Fitness" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Experience (Years)</label>
+            <input type="number" min="0" value={formData.experience_years} onChange={(e) => setFormData({...formData, experience_years: e.target.value})} className="w-full form-input bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-white" />
+          </div>
+          <div className="col-span-2 space-y-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Upload Resume (PDF/Doc)</label>
+              <input type="file" onChange={(e) => setFiles({...files, resume: e.target.files?.[0] || null})} className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Upload License</label>
+              <input type="file" onChange={(e) => setFiles({...files, license: e.target.files?.[0] || null})} className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Upload Coaching Contract</label>
+              <input type="file" onChange={(e) => setFiles({...files, contract: e.target.files?.[0] || null})} className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div className="pt-4 flex gap-3 justify-end border-t border-gray-100 dark:border-gray-800">
+        <button type="button" onClick={() => { setIsAddOpen(false); setIsEditOpen(false); }} className="px-5 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">
+          Cancel
+        </button>
+        <button type="submit" disabled={isSubmitting} className="px-5 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50">
+          {isSubmitting ? 'Saving...' : (isEditOpen ? 'Save Changes' : 'Register Coach')}
+        </button>
+      </div>
+    </form>
+  );
 
   return (
     <AppLayout>
@@ -119,7 +237,7 @@ export default function CoachesPage() {
           action={
             user?.role === 'ADMIN' ? (
               <button 
-                onClick={() => setIsAddOpen(true)}
+                onClick={() => { setFormData(initialForm); setFiles({resume: null, license: null, contract: null}); setIsAddOpen(true); }}
                 className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-lg shadow-blue-500/30"
               >
                 <Plus className="w-4 h-4" /> Add Coach
@@ -144,106 +262,36 @@ export default function CoachesPage() {
                 </a>
               )}
               {user?.role === 'ADMIN' && (
-                <button 
-                  onClick={() => handleDelete(row.userId)}
-                  className="p-1.5 ml-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
-                  title="Delete Coach"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                <>
+                  <button 
+                    onClick={() => openEdit(row)}
+                    className="p-1.5 ml-2 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded transition-colors"
+                    title="Edit Coach"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </button>
+                  <button 
+                    onClick={() => handleDelete(row.userId)}
+                    className="p-1.5 ml-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                    title="Delete Coach"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </>
               )}
             </div>
           )}
         />
       )}
 
+      {/* Add / Edit Modals sharing the same body */}
       <Modal isOpen={isAddOpen} onClose={() => setIsAddOpen(false)} title="Register New Coach">
-        <form onSubmit={handleAddSubmit} className="space-y-5">
-          {/* Section 1: User Account */}
-          <div className="border-b border-gray-100 dark:border-gray-800 pb-4">
-            <h3 className="text-sm font-semibold text-gray-500 mb-3 uppercase tracking-wider">Account Information</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">First Name</label>
-                <input required type="text" value={formData.first_name} onChange={(e) => setFormData({...formData, first_name: e.target.value})} className="w-full form-input bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-white" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Last Name</label>
-                <input required type="text" value={formData.last_name} onChange={(e) => setFormData({...formData, last_name: e.target.value})} className="w-full form-input bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-white" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Username</label>
-                <input required type="text" value={formData.username} onChange={(e) => setFormData({...formData, username: e.target.value})} className="w-full form-input bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-white" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
-                <input required type="email" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} className="w-full form-input bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-white" />
-              </div>
-              <div className="col-span-2">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Initial Password</label>
-                <input required type="password" minLength={8} value={formData.password} onChange={(e) => setFormData({...formData, password: e.target.value})} className="w-full form-input bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-white" />
-              </div>
-            </div>
-          </div>
-
-          {/* Section 2: Personal Profile */}
-          <div className="border-b border-gray-100 dark:border-gray-800 pb-4">
-            <h3 className="text-sm font-semibold text-gray-500 mb-3 uppercase tracking-wider">Personal Details</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date of Birth</label>
-                <input type="date" value={formData.dob} onChange={(e) => setFormData({...formData, dob: e.target.value})} className="w-full form-input bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-white" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Contact No.</label>
-                <input type="text" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} className="w-full form-input bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-white" />
-              </div>
-              <div className="col-span-2">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Location of Coaching</label>
-                <input type="text" value={formData.address} onChange={(e) => setFormData({...formData, address: e.target.value})} className="w-full form-input bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-white" placeholder="e.g., Stadium Name, City" />
-              </div>
-            </div>
-          </div>
-
-          {/* Section 3: Professional Files */}
-          <div>
-            <h3 className="text-sm font-semibold text-gray-500 mb-3 uppercase tracking-wider">Professional Credentials</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Specialization</label>
-                <input type="text" value={formData.specialization} onChange={(e) => setFormData({...formData, specialization: e.target.value})} className="w-full form-input bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-white" placeholder="e.g., Goalkeeping, Fitness" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Experience (Years)</label>
-                <input type="number" min="0" value={formData.experience_years} onChange={(e) => setFormData({...formData, experience_years: e.target.value})} className="w-full form-input bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-white" />
-              </div>
-              <div className="col-span-2 space-y-3">
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Upload Resume (PDF/Doc)</label>
-                  <input type="file" onChange={(e) => setFiles({...files, resume: e.target.files?.[0] || null})} className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Upload License</label>
-                  <input type="file" onChange={(e) => setFiles({...files, license: e.target.files?.[0] || null})} className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Upload Coaching Contract</label>
-                  <input type="file" onChange={(e) => setFiles({...files, contract: e.target.files?.[0] || null})} className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          <div className="pt-4 flex gap-3 justify-end border-t border-gray-100 dark:border-gray-800">
-            <button type="button" onClick={() => setIsAddOpen(false)} className="px-5 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">
-              Cancel
-            </button>
-            <button type="submit" disabled={isSubmitting} className="px-5 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50">
-              {isSubmitting ? 'Registering...' : 'Register Coach'}
-            </button>
-          </div>
-        </form>
+        {modalBodyContent}
       </Modal>
+      <Modal isOpen={isEditOpen} onClose={() => setIsEditOpen(false)} title="Edit Coach Details">
+        {modalBodyContent}
+      </Modal>
+
     </AppLayout>
   );
 }

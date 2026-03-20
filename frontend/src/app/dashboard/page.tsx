@@ -1,23 +1,57 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import useAuthStore from '@/store/authStore';
+import apiClient from '@/lib/axios';
 import { Users, UserSquare2, GraduationCap, Calendar, TrendingUp, Activity } from 'lucide-react';
 
-const StatCard = ({ title, value, icon: Icon, colorClass }: any) => (
+const StatCard = ({ title, value, icon: Icon, colorClass, loading }: any) => (
   <div className="glass-card p-6 flex items-center gap-4">
     <div className={`w-14 h-14 rounded-full flex items-center justify-center ${colorClass}`}>
       <Icon className="w-7 h-7 text-white" />
     </div>
     <div>
       <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{title}</p>
-      <h3 className="text-2xl font-bold dark:text-white">{value}</h3>
+      <h3 className="text-2xl font-bold dark:text-white">
+        {loading ? <span className="animate-pulse">...</span> : value}
+      </h3>
     </div>
   </div>
 );
 
 export default function Dashboard() {
   const { user } = useAuthStore();
+  const [stats, setStats] = useState({ coaches: 0, players: 0, students: 0, sessions: 0 });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const [coachesRes, playersRes, studentsRes, sessionsRes] = await Promise.all([
+          apiClient.get('coaches/'),
+          apiClient.get('players/'),
+          apiClient.get('students/'),
+          apiClient.get('training/')
+        ]);
+        setStats({
+          coaches: coachesRes.data.count ?? coachesRes.data.length ?? 0,
+          players: playersRes.data.count ?? playersRes.data.length ?? 0,
+          students: studentsRes.data.count ?? studentsRes.data.length ?? 0,
+          sessions: sessionsRes.data.count ?? sessionsRes.data.length ?? 0
+        });
+      } catch (err) {
+        console.error("Error fetching stats", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    if (user?.role === 'ADMIN') {
+      fetchStats();
+    } else {
+      setLoading(false);
+    }
+  }, [user]);
 
   return (
     <AppLayout>
@@ -28,10 +62,10 @@ export default function Dashboard() {
 
       {user?.role === 'ADMIN' && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <StatCard title="Total Coaches" value="12" icon={UserSquare2} colorClass="bg-gradient-to-br from-blue-500 to-blue-600" />
-          <StatCard title="Total Players" value="148" icon={Users} colorClass="bg-gradient-to-br from-indigo-500 to-indigo-600" />
-          <StatCard title="Active Students" value="320" icon={GraduationCap} colorClass="bg-gradient-to-br from-purple-500 to-purple-600" />
-          <StatCard title="Sessions Today" value="8" icon={Calendar} colorClass="bg-gradient-to-br from-pink-500 to-pink-600" />
+          <StatCard loading={loading} title="Total Coaches" value={stats.coaches} icon={UserSquare2} colorClass="bg-gradient-to-br from-blue-500 to-blue-600" />
+          <StatCard loading={loading} title="Total Players" value={stats.players} icon={Users} colorClass="bg-gradient-to-br from-indigo-500 to-indigo-600" />
+          <StatCard loading={loading} title="Active Students" value={stats.students} icon={GraduationCap} colorClass="bg-gradient-to-br from-purple-500 to-purple-600" />
+          <StatCard loading={loading} title="Sessions Today" value={stats.sessions} icon={Calendar} colorClass="bg-gradient-to-br from-pink-500 to-pink-600" />
         </div>
       )}
 

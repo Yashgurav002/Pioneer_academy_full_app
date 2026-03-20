@@ -24,7 +24,8 @@ export default function PlayersPage() {
   const fetchPlayers = async () => {
     try {
       const res = await apiClient.get('players/');
-      const formatted = res.data.map((p: any) => ({
+      const dataList = res.data.results ? res.data.results : res.data;
+      const formatted = dataList.map((p: any) => ({
         ...p,
         username: p.user?.username,
         email: p.user?.email,
