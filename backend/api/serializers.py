@@ -59,8 +59,35 @@ class AttendanceSerializer(serializers.ModelSerializer):
         model = Attendance
         fields = '__all__'
 
+class CoachRegistrationSerializer(serializers.Serializer):
+    first_name = serializers.CharField(max_length=150)
+    last_name = serializers.CharField(max_length=150)
+    username = serializers.CharField(max_length=150)
+    email = serializers.EmailField()
+    password = serializers.CharField(write_only=True)
+    
+    dob = serializers.DateField(required=False, allow_null=True)
+    phone = serializers.CharField(max_length=20, required=False, allow_blank=True)
+    address = serializers.CharField(required=False, allow_blank=True)
+    
+    resume = serializers.FileField(required=False, allow_null=True)
+    license = serializers.FileField(required=False, allow_null=True)
+    contract = serializers.FileField(required=False, allow_null=True)
+    specialization = serializers.CharField(max_length=255, required=False, allow_blank=True)
+    experience_years = serializers.IntegerField(default=0)
+
 class DocumentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Document
         fields = '__all__'
         read_only_fields = ('user',)
+
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    @classmethod
+    def get_token(cls, user):
+        token = super().get_token(user)
+        token['username'] = user.username
+        token['role'] = user.role
+        return token
