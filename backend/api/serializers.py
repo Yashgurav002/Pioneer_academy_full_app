@@ -31,6 +31,10 @@ class ProfileSerializer(serializers.ModelSerializer):
 
 class CoachProfileSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
+    dob = serializers.DateField(source='user.profile.dob', read_only=True)
+    phone = serializers.CharField(source='user.profile.phone', read_only=True)
+    address = serializers.CharField(source='user.profile.address', read_only=True)
+    
     class Meta:
         model = CoachProfile
         fields = '__all__'

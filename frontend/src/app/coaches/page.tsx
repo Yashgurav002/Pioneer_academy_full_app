@@ -96,9 +96,9 @@ export default function CoachesPage() {
       password: '',
       first_name: coach.user?.first_name || '',
       last_name: coach.user?.last_name || '',
-      dob: '', 
-      phone: '', 
-      address: '',
+      dob: coach.dob || '', 
+      phone: coach.phone || '', 
+      address: coach.address || '',
       specialization: coach.specialization || '',
       experience_years: coach.experience_years?.toString() || '0'
     });
