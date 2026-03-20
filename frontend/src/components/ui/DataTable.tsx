@@ -1,6 +1,6 @@
 import { ReactNode } from 'react';
 
-interface Column {
+export interface Column {
   key: string;
   label: string;
 }
@@ -10,9 +10,10 @@ interface DataTableProps {
   data: any[];
   title: string;
   action?: ReactNode;
+  renderRowActions?: (row: any) => ReactNode;
 }
 
-export default function DataTable({ columns, data, title, action }: DataTableProps) {
+export default function DataTable({ columns, data, title, action, renderRowActions }: DataTableProps) {
   return (
     <div className="glass-card overflow-hidden">
       <div className="flex justify-between items-center p-6 border-b border-gray-100 dark:border-gray-800">
@@ -28,23 +29,31 @@ export default function DataTable({ columns, data, title, action }: DataTablePro
                   {col.label}
                 </th>
               ))}
+              {renderRowActions && (
+                <th className="p-4 text-sm font-semibold text-gray-600 dark:text-gray-300 text-right">Actions</th>
+              )}
             </tr>
           </thead>
           <tbody>
             {data.length === 0 ? (
               <tr>
-                <td colSpan={columns.length} className="p-8 text-center text-gray-500 dark:text-gray-400">
+                <td colSpan={columns.length + (renderRowActions ? 1 : 0)} className="p-8 text-center text-gray-500 dark:text-gray-400">
                   No records found.
                 </td>
               </tr>
             ) : (
               data.map((row, i) => (
-                <tr key={i} className="border-b border-gray-50 dark:border-gray-800 last:border-0 hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors">
+                <tr key={row.id || i} className="border-b border-gray-50 dark:border-gray-800 last:border-0 hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors">
                   {columns.map((col) => (
                     <td key={col.key} className="p-4 text-sm text-gray-700 dark:text-gray-200">
                       {row[col.key] || '-'}
                     </td>
                   ))}
+                  {renderRowActions && (
+                    <td className="p-4 text-sm text-right">
+                      {renderRowActions(row)}
+                    </td>
+                  )}
                 </tr>
               ))
             )}

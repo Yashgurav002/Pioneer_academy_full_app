@@ -9,10 +9,19 @@ from documents.models import Document
 User = get_user_model()
 
 class UserSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True, required=False)
+
     class Meta:
         model = User
-        fields = ('id', 'username', 'email', 'role', 'first_name', 'last_name')
+        fields = ('id', 'username', 'email', 'password', 'role', 'first_name', 'last_name')
         read_only_fields = ('id',)
+
+    def create(self, validated_data):
+        password = validated_data.pop('password', 'defaultpassword123')
+        user = User(**validated_data)
+        user.set_password(password)
+        user.save()
+        return user
 
 class ProfileSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)

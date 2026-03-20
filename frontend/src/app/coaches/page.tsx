@@ -1,43 +1,79 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, FormEvent } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
-import DataTable from '@/components/ui/DataTable';
+import DataTable, { Column } from '@/components/ui/DataTable';
+import Modal from '@/components/ui/Modal';
 import apiClient from '@/lib/axios';
 import useAuthStore from '@/store/authStore';
-import { Plus } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 
 export default function CoachesPage() {
-  const [coaches, setCoaches] = useState([]);
+  const [coaches, setCoaches] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Modal states
+  const [isAddOpen, setIsAddOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formData, setFormData] = useState({
+    username: '', email: '', password: '', first_name: '', last_name: ''
+  });
+
   const { user } = useAuthStore();
 
+  const fetchCoaches = async () => {
+    try {
+      const res = await apiClient.get('coaches/');
+      const formatted = res.data.map((c: any) => ({
+        ...c,
+        username: c.user?.username,
+        email: c.user?.email,
+        fullName: `${c.user?.first_name || ''} ${c.user?.last_name || ''}`.trim(),
+        userId: c.user?.id,
+      }));
+      setCoaches(formatted);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchCoaches = async () => {
-      try {
-        const res = await apiClient.get('coaches/');
-        // Mapping complex embedded data for visual presentation
-        const formatted = res.data.map((c: any) => ({
-          ...c,
-          username: c.user?.username,
-          email: c.user?.email,
-          fullName: c.user?.first_name + ' ' + c.user?.last_name,
-        }));
-        setCoaches(formatted);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchCoaches();
   }, []);
 
-  const columns = [
+  const handleAddSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      // Create User with role COACH
+      await apiClient.post('users/', { ...formData, role: 'COACH' });
+      setIsAddOpen(false);
+      setFormData({ username: '', email: '', password: '', first_name: '', last_name: '' });
+      fetchCoaches();
+    } catch (err: any) {
+      alert('Error creating coach: ' + JSON.stringify(err.response?.data || err.message));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (userId: number) => {
+    if (!confirm('Are you sure you want to permanently delete this Coach account?')) return;
+    try {
+      await apiClient.delete(`users/${userId}/`);
+      fetchCoaches();
+    } catch (err: any) {
+      alert('Failed to delete coach. ' + (err.response?.data?.detail || ''));
+    }
+  };
+
+  const columns: Column[] = [
     { key: 'username', label: 'Username' },
+    { key: 'fullName', label: 'Full Name' },
     { key: 'email', label: 'Email' },
     { key: 'specialization', label: 'Specialization' },
-    { key: 'experience_years', label: 'Experience (Yrs)' },
   ];
 
   return (
@@ -60,13 +96,65 @@ export default function CoachesPage() {
           data={coaches} 
           action={
             user?.role === 'ADMIN' ? (
-              <button className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-lg shadow-blue-500/30">
+              <button 
+                onClick={() => setIsAddOpen(true)}
+                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-lg shadow-blue-500/30"
+              >
                 <Plus className="w-4 h-4" /> Add Coach
               </button>
             ) : null
           }
+          renderRowActions={user?.role === 'ADMIN' ? (row: any) => (
+            <div className="flex justify-end gap-2">
+              <button 
+                onClick={() => handleDelete(row.userId)}
+                className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                title="Delete Coach"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          ) : undefined}
         />
       )}
+
+      {/* Add Coach Modal */}
+      <Modal isOpen={isAddOpen} onClose={() => setIsAddOpen(false)} title="Add New Coach">
+        <form onSubmit={handleAddSubmit} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">First Name</label>
+              <input required type="text" value={formData.first_name} onChange={(e) => setFormData({...formData, first_name: e.target.value})} className="w-full form-input bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 rounded-lg px-4 py-2 text-gray-900 dark:text-white" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Last Name</label>
+              <input required type="text" value={formData.last_name} onChange={(e) => setFormData({...formData, last_name: e.target.value})} className="w-full form-input bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 rounded-lg px-4 py-2 text-gray-900 dark:text-white" />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Username</label>
+            <input required type="text" value={formData.username} onChange={(e) => setFormData({...formData, username: e.target.value})} className="w-full form-input bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 rounded-lg px-4 py-2 text-gray-900 dark:text-white" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
+            <input required type="email" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} className="w-full form-input bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 rounded-lg px-4 py-2 text-gray-900 dark:text-white" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Initial Password</label>
+            <input required type="password" minLength={8} value={formData.password} onChange={(e) => setFormData({...formData, password: e.target.value})} className="w-full form-input bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 rounded-lg px-4 py-2 text-gray-900 dark:text-white" />
+          </div>
+          
+          <div className="pt-4 flex gap-3 justify-end">
+            <button type="button" onClick={() => setIsAddOpen(false)} className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">
+              Cancel
+            </button>
+            <button type="submit" disabled={isSubmitting} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50">
+              {isSubmitting ? 'Creating...' : 'Create Coach'}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
     </AppLayout>
   );
 }
