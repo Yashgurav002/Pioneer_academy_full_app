@@ -134,6 +134,9 @@ CLOUDINARY_STORAGE = {
     'API_SECRET': os.getenv('CLOUDINARY_API_SECRET'),
 }
 
+if not all(CLOUDINARY_STORAGE.values()):
+    print("⚠️ WARNING: One or more Cloudinary environment variables are missing! Check your Render Environment configuration.")
+
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
