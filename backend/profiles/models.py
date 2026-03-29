@@ -1,5 +1,6 @@
 from django.db import models
 from django.conf import settings
+from cloudinary_storage.storage import RawMediaCloudinaryStorage
 
 class Profile(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='profile')
@@ -13,9 +14,9 @@ class Profile(models.Model):
 
 class CoachProfile(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='coach_profile')
-    resume = models.FileField(upload_to='coaches/resumes/', null=True, blank=True)
-    license = models.FileField(upload_to='coaches/licenses/', null=True, blank=True)
-    contract = models.FileField(upload_to='coaches/contracts/', null=True, blank=True)
+    resume = models.FileField(upload_to='coaches/resumes/', storage=RawMediaCloudinaryStorage(), null=True, blank=True)
+    license = models.FileField(upload_to='coaches/licenses/', storage=RawMediaCloudinaryStorage(), null=True, blank=True)
+    contract = models.FileField(upload_to='coaches/contracts/', storage=RawMediaCloudinaryStorage(), null=True, blank=True)
     experience_years = models.PositiveIntegerField(default=0)
     specialization = models.CharField(max_length=255, null=True, blank=True)
 
@@ -27,8 +28,8 @@ class PlayerProfile(models.Model):
     position = models.CharField(max_length=100, null=True, blank=True)
     height = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True, help_text="Height in cm")
     weight = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True, help_text="Weight in kg")
-    medical_report = models.FileField(upload_to='players/medical/', null=True, blank=True)
-    contract = models.FileField(upload_to='players/contracts/', null=True, blank=True)
+    medical_report = models.FileField(upload_to='players/medical/', storage=RawMediaCloudinaryStorage(), null=True, blank=True)
+    contract = models.FileField(upload_to='players/contracts/', storage=RawMediaCloudinaryStorage(), null=True, blank=True)
 
     def __str__(self):
         return f"Player {self.user.username}"
